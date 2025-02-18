@@ -1,5 +1,4 @@
 # CUSTOMER-LIFETIME-VALUE
-Cohort Analysis and CLV Prediction
 
 # Cohort Analysis and CLV Prediction
 
