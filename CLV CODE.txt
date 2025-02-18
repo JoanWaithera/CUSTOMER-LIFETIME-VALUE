@@ -1,0 +1,69 @@
+-- Extract only unique first visits
+WITH 
+first_visit AS 
+(
+    SELECT 
+        DISTINCT user_pseudo_id AS user_id, 
+        MIN(PARSE_DATE('%Y%m%d', event_date)) AS reg_date, 
+        MIN(event_timestamp) AS first_visit 
+    FROM `tc-da-1.turing_data_analytics.raw_events`
+    GROUP BY user_pseudo_id
+),
+
+-- Extract only purchases
+purchases AS 
+(
+    SELECT 
+        user_pseudo_id AS user_id, 
+        PARSE_DATE('%Y%m%d', event_date) AS pur_date, 
+        purchase_revenue_in_usd AS revenue 
+    FROM `tc-da-1.turing_data_analytics.raw_events`
+    WHERE event_name = 'purchase'
+    AND purchase_revenue_in_usd > 0
+),
+
+-- Combine first visits & purchases
+cohort_raw_data AS (
+    SELECT 
+        f.user_id AS f_user_id, 
+        DATE_TRUNC(reg_date, WEEK) AS reg_week, 
+        p.user_id AS p_user, 
+        DATE_TRUNC(pur_date, WEEK) AS pur_week, 
+        revenue 
+    FROM first_visit f
+    LEFT JOIN purchases p 
+    ON f.user_id = p.user_id
+),
+
+-- Calculate registration_week and purchase_week difference
+cohort_week AS (
+    SELECT 
+        f_user_id, 
+        reg_week, 
+        pur_week, 
+        DATE_DIFF(pur_week, reg_week, WEEK) AS week_diff, 
+        revenue 
+    FROM cohort_raw_data
+)
+
+-- COHORT TABLE with revenues
+SELECT 
+    reg_week, 
+    COUNT(cohort_week.f_user_id) AS registrations,
+    SUM(IF(week_diff = 0, revenue, 0)) AS week_0,
+    SUM(IF(week_diff = 1, revenue, 0)) AS week_1,
+    SUM(IF(week_diff = 2, revenue, 0)) AS week_2,
+    SUM(IF(week_diff = 3, revenue, 0)) AS week_3,
+    SUM(IF(week_diff = 4, revenue, 0)) AS week_4,
+    SUM(IF(week_diff = 5, revenue, 0)) AS week_5,
+    SUM(IF(week_diff = 6, revenue, 0)) AS week_6,
+    SUM(IF(week_diff = 7, revenue, 0)) AS week_7,
+    SUM(IF(week_diff = 8, revenue, 0)) AS week_8,
+    SUM(IF(week_diff = 9, revenue, 0)) AS week_9,
+    SUM(IF(week_diff = 10, revenue, 0)) AS week_10,
+    SUM(IF(week_diff = 11, revenue, 0)) AS week_11,
+    SUM(IF(week_diff = 12, revenue, 0)) AS week_12
+FROM cohort_week 
+WHERE reg_week <= '2021-01-24'
+GROUP BY reg_week
+ORDER BY reg_week;
